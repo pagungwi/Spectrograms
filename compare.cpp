@@ -127,16 +127,29 @@ int main(int argc, char const *argv[]) {
     const unsigned char* ptr2 = reinterpret_cast<const unsigned char*>(post_rgba.data);
     
     unsigned char* channel;
+    std::chrono::time_point<std::chrono::system_clock> start, end;
+    std::chrono::duration<double> elapsed_time;
+    
     //Does comparison based on type specifed by user
     if (cmp_type == 0) {
+        start = std::chrono::system_clock::now();
         channel = serialCompare(ptr1, ptr2, numPixels);
+        end = std::chrono::system_clock::now();
     }else if (cmp_type == 1){
+        start = std::chrono::system_clock::now();
         channel = parallelCompare(ptr1, ptr2, numPixels);
+        end = std::chrono::system_clock::now();
     }else if (cmp_type  == 1){
+        start = std::chrono::system_clock::now();
         channel = vectorizedCompare(ptr1, ptr2, numPixels);
+        end = std::chrono::system_clock::now();
     }else {
         std::cerr << "Invalid input for compare type \nValid compare types: \nserial=0 \nparallel=1 \nvectorized=2\n"; 
-    }    
+    }
+    
+    elapsed_time = end-start;
+    std::cout << "Time: " << elapsed_time.count() << "s\n";
+    
     std::string channel_name = folder_path + "-channel.bmp";
     createChannelImage(channel, im_rows, im_cols, channel_name); 
     
