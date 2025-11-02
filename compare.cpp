@@ -26,7 +26,7 @@ unsigned char * serialCompare(const unsigned char* pre, const unsigned char* pos
 }
 
 /* 
-Parallelized computation of pixel difference to generate spectrogram of channel
+Parallelized computation of pixel difference to generate spectrogram of channel (OpenMP) --> Precious
 */
 unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
     unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
@@ -48,6 +48,21 @@ unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* p
     // std::cout << "Images are not the same.\n Number of differing pixels: " << diffCount << std::endl;
     // }
     return chnl;
+}
+
+/* 
+Vectorized computation of pixel difference to generate spectrogram of channel (AVX512 registers) --> Sam
+*/
+unsigned char * vectorizedCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
+    unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
+    
+    return chnl;
+}
+
+/* Verify correctness across approaches */
+bool diffCheck(const unsigned char * ch1, const unsigned char * ch2) {
+    bool indicator;
+    return false;
 }
 
 /*
@@ -118,7 +133,7 @@ int main(int argc, char const *argv[]) {
     }else if (cmp_type == 1){
         channel = parallelCompare(ptr1, ptr2, numPixels);
     }else if (cmp_type  == 1){
-        //vectorizedCompare(); //We don't have to do this, I just figured it would be good to include something from class
+        channel = vectorizedCompare(ptr1, ptr2, numPixels);
     }else {
         std::cerr << "Invalid input for compare type \nValid compare types: \nserial=0 \nparallel=1 \nvectorized=2\n"; 
     }    
