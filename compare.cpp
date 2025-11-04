@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sstream>
+#include <omp.h>
 /* 
 Serially compare each pixel by computing pixel difference to generate spectrogram of channel 
 */
@@ -29,7 +30,43 @@ unsigned char * serialCompare(const unsigned char* pre, const unsigned char* pos
 Parallelized computation of pixel difference to generate spectrogram of channel (OpenMP) --> Precious
 */
 unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
+    
     unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
+    
+    #pragma parallel
+    {
+        /*
+        //Probably need to change indexing such that index corresponds to ID of thread
+        int p = omp_get_thread_num();
+        int nt = omp_get_numd_threads();
+        //Number of threads is CPU based so calulate how many pixels each thread will have to do        
+        */
+        #pragma omp for
+        for (size_t i = 0; i < numPixels; ++i) {  // 4 channels per pixel (RGBA)
+        size_t idx = i*4;
+        chnl[idx] = post[idx] - pre[idx]; // R
+        chnl[idx+1] = post[idx+1] - pre[idx+1]; // G
+        chnl[idx+2] = post[idx+2] - pre[idx+2]; // B
+        chnl[idx+3] = post[idx+3] - pre[idx+3]; // A
+        }
+    }
+    
+    return chnl;
+}
+
+/* 
+Vectorized computation of pixel difference to generate spectrogram of channel (AVX512 registers) --> Sam
+*/
+unsigned char * vectorizedCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
+    unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
+    
+    return chnl;
+}
+
+/* Verify correctness across approaches */
+bool diffCheck(const unsigned char * ch1, const unsigned char * ch2) {
+    bool indicator;   
+    //unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
     // size_t diffCount = 0;
 
     // for (size_t i = 0; i < numPixels; ++i) {
@@ -47,21 +84,7 @@ unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* p
     // } else {
     // std::cout << "Images are not the same.\n Number of differing pixels: " << diffCount << std::endl;
     // }
-    return chnl;
-}
-
-/* 
-Vectorized computation of pixel difference to generate spectrogram of channel (AVX512 registers) --> Sam
-*/
-unsigned char * vectorizedCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
-    unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
     
-    return chnl;
-}
-
-/* Verify correctness across approaches */
-bool diffCheck(const unsigned char * ch1, const unsigned char * ch2) {
-    bool indicator;
     return false;
 }
 
