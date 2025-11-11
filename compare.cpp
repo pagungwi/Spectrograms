@@ -57,9 +57,15 @@ unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* p
 /* 
 Vectorized computation of pixel difference to generate spectrogram of channel (AVX512 registers) --> Sam
 */
+__attribute__((target("avx512f")))
 unsigned char * vectorizedCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
     unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
-    
+    for (int i = 0; i < numPixels*4; i+=16) {
+            temp = _mm512_loadu_si512(&pre[i]);
+            temp2 = _mm512_loadu_si512(&post[i]);
+            _mm512_store_epi32(&chnl[i], _mm512_sub_epi32(temp, temp2); 
+        }
+    }
     return chnl;
 }
 
