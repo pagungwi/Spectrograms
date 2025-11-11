@@ -11,6 +11,9 @@
 #include <string.h>
 #include <sstream>
 #include <omp.h>
+#include <immintrin.h>
+#include <x86intrin.h>
+
 /* 
 Serially compare each pixel by computing pixel difference to generate spectrogram of channel 
 */
@@ -57,14 +60,14 @@ unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* p
 /* 
 Vectorized computation of pixel difference to generate spectrogram of channel (AVX512 registers) --> Sam
 */
-__attribute__((target("avx512f")))
+__attribute__((target("avx512f,avx512bw")))
 unsigned char * vectorizedCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
     unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
-    for (int i = 0; i < numPixels*4; i+=16) {
-            temp = _mm512_loadu_si512(&pre[i]);
-            temp2 = _mm512_loadu_si512(&post[i]);
-            _mm512_store_epi32(&chnl[i], _mm512_sub_epi32(temp, temp2); 
-        }
+    __m512i temp1, temp2;
+    for (int i = 0; i < numPixels*4; i+=64) {
+        temp1 = _mm512_loadu_si512(&post[i]);
+        temp2 = _mm512_loadu_si512(&pre[i]);
+        _mm512_storeu_si512(&chnl[i], _mm512_sub_epi8(temp1, temp2)); 
     }
     return chnl;
 }
@@ -168,7 +171,7 @@ int main(int argc, char const *argv[]) {
         start = std::chrono::system_clock::now();
         channel = parallelCompare(ptr1, ptr2, numPixels);
         end = std::chrono::system_clock::now();
-    }else if (cmp_type  == 1){
+    }else if (cmp_type  == 2){
         start = std::chrono::system_clock::now();
         channel = vectorizedCompare(ptr1, ptr2, numPixels);
         end = std::chrono::system_clock::now();
