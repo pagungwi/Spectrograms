@@ -32,18 +32,19 @@ unsigned char * serialCompare(const unsigned char* pre, const unsigned char* pos
 /* 
 Parallelized computation of pixel difference to generate spectrogram of channel (OpenMP) --> Precious
 */
-unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels) {
+unsigned char * parallelCompare(const unsigned char* pre, const unsigned char* post, size_t numPixels, size_t num_threads) {
     
     unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
-    
-    #pragma parallel
+    omp_set_num_threads(num_threads);
+    #pragma omp parallel
     {
-        /*
+        
         //Probably need to change indexing such that index corresponds to ID of thread
-        int p = omp_get_thread_num();
-        int nt = omp_get_numd_threads();
+        //int p = omp_get_thread_num();
+        //int nt = omp_get_num_threads();
+        //std::cout << "Number of threads: " << p << " Num threads: " << nt <<"\n"; 
         //Number of threads is CPU based so calulate how many pixels each thread will have to do        
-        */
+        
         #pragma omp for
         for (size_t i = 0; i < numPixels; ++i) {  // 4 channels per pixel (RGBA)
         size_t idx = i*4;
@@ -73,28 +74,20 @@ unsigned char * vectorizedCompare(const unsigned char* pre, const unsigned char*
 }
 
 /* Verify correctness across approaches */
-bool diffCheck(const unsigned char * ch1, const unsigned char * ch2) {
-    bool indicator;   
-    //unsigned char * chnl = (unsigned char *)malloc(numPixels*4*sizeof(unsigned char));
+bool diffCheck(const unsigned char * ser, const unsigned char * par, size_t numPixels) {
+    bool indicator = true;   
     // size_t diffCount = 0;
 
-    // for (size_t i = 0; i < numPixels; ++i) {
-    //     size_t idx = i * 4;  // 4 channels per pixel (RGBA)
-    //     if (img1[idx + 0] != img2[idx + 0] ||  // R
-    //         img1[idx + 1] != img2[idx + 1] ||  // G
-    //         img1[idx + 2] != img2[idx + 2] ||  // B
-    //         img1[idx + 3] != img2[idx + 3]) {  // A
-    //         ++diffCount;
-    //     }
-    // }
+     for (size_t i = 0; i < numPixels*4; ++i) {
+        if(ser[i] != par[i]) { indicator = false; break; }
+    }
     
-    // if (diffCount == 0) {
-    // std::cout << "Images are the same\n";   
-    // } else {
-    // std::cout << "Images are not the same.\n Number of differing pixels: " << diffCount << std::endl;
-    // }
-    
-    return false;
+    if (indicator == true) {
+    std::cout << "Spectrograms match!\n";   
+    } else {
+    std::cout << "Spectrograms do not match!\n";
+    }
+    return indicator;
 }
 
 /*
@@ -113,7 +106,7 @@ void createChannelImage(unsigned char *in, const int rows, const int cols, std::
 
 int main(int argc, char const *argv[]) {
     
-    int im_rows, im_cols, cmp_type;
+    int im_rows, im_cols, cmp_type, num_threads;
     std::string chnl_type;
 
     switch(argc){
@@ -122,12 +115,21 @@ int main(int argc, char const *argv[]) {
             im_cols = 256;
             cmp_type = 0;
             chnl_type = "AWGN";
+            num_threads = 1;
             break; 
         case 5:
             im_rows = atoi(argv[1]);
             im_cols = atoi(argv[2]);
             cmp_type = atoi(argv[3]);
             chnl_type = argv[4];
+            num_threads = 1;
+            break;
+        case 6:
+            im_rows = atoi(argv[1]);
+            im_cols = atoi(argv[2]);
+            cmp_type = atoi(argv[3]);
+            chnl_type = argv[4];
+            num_threads = atoi(argv[5]);
             break;
 
         default: 
@@ -143,7 +145,7 @@ int main(int argc, char const *argv[]) {
     
     //Read in image at specified file path
     std::ostringstream oss;
-    oss << im_rows << "x" << im_cols << "-" << chnl_type;
+    oss << im_rows << "x" << im_cols << "-" << chnl_type << "-5g";
     std::string folder_path = oss.str();
     std::string pre_path = folder_path + "/spectrograms/spectrogram_pre_0.bmp"; // Change "0" to test different spectrograms
     std::string post_path = folder_path + "/spectrograms/spectrogram_post_0.bmp"; // Change "0" to test different spectrograms
@@ -169,7 +171,7 @@ int main(int argc, char const *argv[]) {
         end = std::chrono::system_clock::now();
     }else if (cmp_type == 1){
         start = std::chrono::system_clock::now();
-        channel = parallelCompare(ptr1, ptr2, numPixels);
+        channel = parallelCompare(ptr1, ptr2, numPixels, num_threads);
         end = std::chrono::system_clock::now();
     }else if (cmp_type  == 2){
         start = std::chrono::system_clock::now();
@@ -178,6 +180,13 @@ int main(int argc, char const *argv[]) {
     }else {
         std::cerr << "Invalid input for compare type \nValid compare types: \nserial=0 \nparallel=1 \nvectorized=2\n"; 
     }
+
+    /* Confirm that spectrograms between approaches are still the same. */
+    unsigned char * ser = serialCompare(ptr1, ptr2, numPixels);
+    unsigned char * vec = vectorizedCompare(ptr1, ptr2, numPixels);
+    unsigned char * op = parallelCompare(ptr1, ptr2, numPixels, num_threads);
+    std::cout << "Serial vs. Vectorized Match? " << diffCheck(ser, vec, numPixels) << "\n";
+    std::cout << "Serial vs. OpenMP Match? " << diffCheck(ser, op, numPixels) << "\n";
     
     elapsed_time = end-start;
     std::cout << "Time: " << elapsed_time.count() << "s\n";
